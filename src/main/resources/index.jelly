@@ -1,0 +1,6 @@
+<!--
+  This view is used to render the installed plugins page.
+-->
+<div>
+	Formats the workspace into a debian package structure, for tarballing. 
+</div>
