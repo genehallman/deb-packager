@@ -14,7 +14,6 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
-import java.util.List;
 
 import javax.servlet.ServletException;
 
@@ -28,7 +27,7 @@ import org.kohsuke.stapler.StaplerRequest;
  * <p>
  * When the user configures the project and enables this builder,
  * {@link DescriptorImpl#newInstance(StaplerRequest)} is invoked and a new
- * {@link DebPackageBuilder} is created. The created instance is persisted to
+ * {@link DebPackagerBuilder} is created. The created instance is persisted to
  * the project configuration XML by using XStream, so this allows you to use
  * instance fields (like {@link #name}) to remember the configuration.
  * 
@@ -121,7 +120,7 @@ public class DebPackagerBuilder extends Builder {
     }
 
     @Override
-    public boolean perform(AbstractBuild build, Launcher launcher, BuildListener listener) {
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
         try {
             FilePath workspace = build.getWorkspace();
             String packageNameSub = getParameterString(packageName, build, listener);
@@ -129,51 +128,49 @@ public class DebPackagerBuilder extends Builder {
             String dependenciesSub = getParameterString(dependencies, build, listener);
             String debPkgName = packageNameSub + "_" + version;
 
-            // (1st) move the workspace to the future install directory
-            if (moveWorkspacePath != null && !moveWorkspacePath.isEmpty()) {
-                List<FilePath> children = workspace.list();
-                FilePath tempPath = workspace.child("../tmp"
-                        + String.valueOf(Math.abs(Math.random() * 100)) + "/");
-                tempPath.mkdirs();
-                listener.getLogger().println(workspace.toString());
-
-                workspace.moveAllChildrenTo(tempPath);
-                workspace.mkdirs();
-                listener.getLogger().println(tempPath.toString());
-                listener.getLogger().println(workspace.toString());
-
-                FilePath pkgPath = workspace.child(moveWorkspacePath);
-                pkgPath.mkdirs();
-
-                tempPath.moveAllChildrenTo(pkgPath);
-                listener.getLogger().println(pkgPath.toString());
+            // 1a. create folder to house package ("workspace/.packaged")
+            FilePath packagePath = workspace.child(".packaged");
+            if (packagePath.exists()) {
+                packagePath.deleteRecursive();
             }
+            packagePath.mkdirs();
 
-            // (2nd) make the debian directory
-            FilePath debianDir = workspace.child("DEBIAN");
-            debianDir.mkdirs();
+            // 1b. create the "moveToPath" directory(s)
+            FilePath moveToPath = moveWorkspacePath == null ? packagePath : packagePath
+                    .child(moveWorkspacePath);
+            moveToPath.mkdirs();
 
-            // (3rd) make control file
-            FilePath controlFile = debianDir.child("control");
+            // 1c. copy the workspace to the future install directory
+            workspace.copyRecursiveTo("**/*", packagePath.getName(), moveToPath);
+
+            // 2. make the debian directory
+            FilePath debianPath = packagePath.child("DEBIAN");
+            debianPath.mkdirs();
+
+            // 3. make control file
+            FilePath controlFile = debianPath.child("control");
             controlFile.write(
-                    makeControlFile(debianDir, packageNameSub, version, dependenciesSub,
+                    makeControlFile(debianPath, packageNameSub, version, dependenciesSub,
                             maintainer, build.getEnvironment(listener)), "UTF-8");
 
-            // (4th) make conffiles dir
-            FilePath conffilesDir = debianDir.child("conffiles/");
-            conffilesDir.mkdirs();
-
-            // (5th) save postinst, preinst, postrm, prerm to files
-            FilePath preinstFile = debianDir.child("preinst");
-            FilePath postinstFile = debianDir.child("postinst");
-            FilePath prermFile = debianDir.child("prerm");
-            FilePath postrmFile = debianDir.child("postrm");
+            // 4. save postinst, preinst, postrm, prerm to files
+            FilePath preinstFile = debianPath.child("preinst");
+            FilePath postinstFile = debianPath.child("postinst");
+            FilePath prermFile = debianPath.child("prerm");
+            FilePath postrmFile = debianPath.child("postrm");
             preinstFile.write(preinst, "UTF-8");
             postinstFile.write(postinst, "UTF-8");
             prermFile.write(prerm, "UTF-8");
             postrmFile.write(postrm, "UTF-8");
 
-            // (6th) set DEB_PKG_NAME env var
+            preinstFile.chmod(Integer.parseInt("755", 8));
+            postinstFile.chmod(Integer.parseInt("755", 8));
+            prermFile.chmod(Integer.parseInt("755", 8));
+            postrmFile.chmod(Integer.parseInt("755", 8));
+
+            // 5. chmod all directories to 755
+
+            // 6. set DEB_PKG_NAME env var
             build.getEnvironment(listener).put("DEB_PKG_NAME", debPkgName);
 
         } catch (Exception e) {
@@ -187,16 +184,18 @@ public class DebPackagerBuilder extends Builder {
     private String makeControlFile(FilePath debianDir, String packageNameSub, String version,
             String dependenciesSub, String maintainer, EnvVars env) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Package:" + packageNameSub);
-        sb.append("Version: " + version);
-        sb.append("Section: devel");
-        sb.append("Priority: optional");
-        sb.append("Architecture: all");
-        sb.append("Depends: " + dependenciesSub);
-        sb.append("Maintainer: " + maintainer);
-        sb.append("Description: " + env.get("JOB_NAME") + " (built by jenkins)");
+        sb.append("Package:" + packageNameSub + "\n");
+        sb.append("Version: " + version.replace("_", "-") + "\n");
+        sb.append("Section: devel\n");
+        sb.append("Priority: optional\n");
+        sb.append("Architecture: any\n");
+        if (dependenciesSub != null && !dependenciesSub.isEmpty()) {
+            sb.append("Depends: " + dependenciesSub + "\n");
+        }
+        sb.append("Maintainer: " + maintainer + "\n");
+        sb.append("Description: " + env.get("JOB_NAME") + " (built by jenkins)\n");
         for (String key : env.keySet()) {
-            sb.append(" " + key + " - " + env.get(key));
+            sb.append(" " + key + " - " + env.get(key) + "\n");
         }
         return sb.toString();
     }
@@ -222,16 +221,17 @@ public class DebPackagerBuilder extends Builder {
         public FormValidation doCheckVersionFormat(@QueryParameter String value)
                 throws IOException, ServletException {
             if (value.length() == 0)
-                return FormValidation.error("Please set a name");
+                return FormValidation.error("Please set a version format");
             return FormValidation.ok();
         }
 
+        @SuppressWarnings("rawtypes")
         public boolean isApplicable(Class<? extends AbstractProject> aClass) {
             return true;
         }
 
         public String getDisplayName() {
-            return "Deb Packaager";
+            return "Deb Packager";
         }
     }
 }
