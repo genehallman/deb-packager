@@ -135,6 +135,12 @@ public class DebPackagerBuilder extends Builder {
             }
             packagePath.mkdirs();
 
+            // 1 aa. remove old .packaged.deb file if we have one
+            FilePath oldPackageFile = workspace.child(".packaged.deb");
+            if (oldPackageFile.exists()) {
+                oldPackageFile.delete();
+            }
+
             // 1b. create the "moveToPath" directory(s)
             FilePath moveToPath = moveWorkspacePath == null ? packagePath : packagePath
                     .child(moveWorkspacePath);
@@ -168,6 +174,10 @@ public class DebPackagerBuilder extends Builder {
             prermFile.chmod(Integer.parseInt("755", 8));
             postrmFile.chmod(Integer.parseInt("755", 8));
 
+            FilePathUtils.chown(packagePath, "root", "root");
+
+            // 4.5 make lintian override file
+
             // 5. chmod all directories to 755
 
             // 6. set DEB_PKG_NAME env var
@@ -188,7 +198,7 @@ public class DebPackagerBuilder extends Builder {
         sb.append("Version: " + version.replace("_", "-") + "\n");
         sb.append("Section: devel\n");
         sb.append("Priority: optional\n");
-        sb.append("Architecture: any\n");
+        sb.append("Architecture: all\n");
         if (dependenciesSub != null && !dependenciesSub.isEmpty()) {
             sb.append("Depends: " + dependenciesSub + "\n");
         }
