@@ -17,9 +17,20 @@
     <f:textbox name="versionFormat" />
   </f:entry>
 
-  <f:entry title="Move workspace to" field="moveWorkspacePath">
-    <f:textbox />
-  </f:entry>
+  <f:entry title="Copy to Path">
+    <f:repeatable name="copyToPaths" field="copyToPaths" minimum="1" noAddButton="false">
+      <table width="100%">
+        <f:entry>
+          <span style="vertical-align: middle;">
+            Include <f:textbox style="width:25%;" name="include"/>
+            Exclude <f:textbox style="width:25%;" name="exclude"/>
+            To <f:textbox style="width:25%;" name="to" />
+            <input type="button" value="Delete Rule" class="repeatable-delete" style="margin-left: 1em; vertical-align:middle;"/>
+          </span>
+        </f:entry>
+      </table>
+    </f:repeatable>
+  </f:entry>  
 
   <f:entry title="Dependencies" field="dependencies">
     <f:textbox />

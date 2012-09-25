@@ -14,6 +14,7 @@ import hudson.tasks.Builder;
 import hudson.util.FormValidation;
 
 import java.io.IOException;
+import java.util.List;
 
 import javax.servlet.ServletException;
 
@@ -42,7 +43,7 @@ public class DebPackagerBuilder extends Builder {
 
     private final String packageName;
     private final String versionFormat;
-    private final String moveWorkspacePath;
+    private final List<CopyPath> copyToPaths;
     private final String dependencies;
     private final String maintainer;
     private final String preinst;
@@ -51,12 +52,12 @@ public class DebPackagerBuilder extends Builder {
     private final String postrm;
 
     @DataBoundConstructor
-    public DebPackagerBuilder(String packageName, String versionFormat, String moveWorkspacePath,
+    public DebPackagerBuilder(String packageName, String versionFormat, List<CopyPath> copyToPaths,
             String dependencies, String maintainer, String preinst, String postinst, String prerm,
             String postrm) {
         this.packageName = packageName;
         this.versionFormat = versionFormat;
-        this.moveWorkspacePath = moveWorkspacePath;
+        this.copyToPaths = copyToPaths;
         this.dependencies = dependencies;
         this.maintainer = maintainer;
         this.preinst = preinst;
@@ -76,8 +77,8 @@ public class DebPackagerBuilder extends Builder {
         return versionFormat;
     }
 
-    public String getMoveWorkspacePath() {
-        return moveWorkspacePath;
+    public List<CopyPath> getCopyToPaths() {
+        return copyToPaths;
     }
 
     public String getDependencies() {
@@ -135,19 +136,23 @@ public class DebPackagerBuilder extends Builder {
             }
             packagePath.mkdirs();
 
-            // 1 aa. remove old .packaged.deb file if we have one
+            // 1b. remove old .packaged.deb file if we have one
             FilePath oldPackageFile = workspace.child(".packaged.deb");
             if (oldPackageFile.exists()) {
                 oldPackageFile.delete();
             }
 
-            // 1b. create the "moveToPath" directory(s)
-            FilePath moveToPath = moveWorkspacePath == null ? packagePath : packagePath
-                    .child(moveWorkspacePath);
-            moveToPath.mkdirs();
+            // 1c. create the "moveToPath" directory(s)
+            if (copyToPaths != null && copyToPaths.size() > 0) {
+                for (CopyPath cpPath : copyToPaths) {
+                    FilePath moveToPath = packagePath.child(cpPath.getTo());
+                    moveToPath.mkdirs();
+                    listener.getLogger().println(cpPath.toString());
 
-            // 1c. copy the workspace to the future install directory
-            workspace.copyRecursiveTo("**/*", packagePath.getName(), moveToPath);
+                    workspace.copyRecursiveTo(cpPath.getInclude(), cpPath.getExclude()
+                            + ", .packaged/", moveToPath);
+                }
+            }
 
             // 2. make the debian directory
             FilePath debianPath = packagePath.child("DEBIAN");
