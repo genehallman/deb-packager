@@ -46,15 +46,15 @@ public class DebPackagerBuilder extends Builder {
     private final List<CopyPath> copyToPaths;
     private final String dependencies;
     private final String maintainer;
-    private final String preinst;
-    private final String postinst;
-    private final String prerm;
-    private final String postrm;
+    private final DebScript preinst;
+    private final DebScript postinst;
+    private final DebScript prerm;
+    private final DebScript postrm;
 
     @DataBoundConstructor
     public DebPackagerBuilder(String packageName, String versionFormat, List<CopyPath> copyToPaths,
-            String dependencies, String maintainer, String preinst, String postinst, String prerm,
-            String postrm) {
+            String dependencies, String maintainer, DebScript preinst, DebScript postinst,
+            DebScript prerm, DebScript postrm) {
         this.packageName = packageName;
         this.versionFormat = versionFormat;
         this.copyToPaths = copyToPaths;
@@ -66,9 +66,6 @@ public class DebPackagerBuilder extends Builder {
         this.postrm = postrm;
     }
 
-    /**
-     * We'll use this from the <tt>config.jelly</tt>.
-     */
     public String getPackageName() {
         return packageName;
     }
@@ -89,19 +86,19 @@ public class DebPackagerBuilder extends Builder {
         return maintainer;
     }
 
-    public String getPreinst() {
+    public DebScript getPreinst() {
         return preinst;
     }
 
-    public String getPostinst() {
+    public DebScript getPostinst() {
         return postinst;
     }
 
-    public String getPrerm() {
+    public DebScript getPrerm() {
         return prerm;
     }
 
-    public String getPostrm() {
+    public DebScript getPostrm() {
         return postrm;
     }
 
@@ -122,6 +119,8 @@ public class DebPackagerBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) {
+        listener.getLogger().println("Deb Packager - starting to structure package...");
+        listener.getLogger().println(this);
         try {
             FilePath workspace = build.getWorkspace();
             String packageNameSub = getParameterString(packageName, build, listener);
@@ -132,7 +131,7 @@ public class DebPackagerBuilder extends Builder {
             // 1a. create folder to house package ("workspace/.packaged")
             FilePath packagePath = workspace.child(".packaged");
             if (packagePath.exists()) {
-                packagePath.deleteRecursive();
+                FilePathUtils.sudoDeleteRecursive(packagePath);
             }
             packagePath.mkdirs();
 
@@ -143,14 +142,10 @@ public class DebPackagerBuilder extends Builder {
             }
 
             // 1c. create the "moveToPath" directory(s)
-            if (copyToPaths != null && copyToPaths.size() > 0) {
+            if (copyToPaths != null) {
                 for (CopyPath cpPath : copyToPaths) {
-                    FilePath moveToPath = packagePath.child(cpPath.getTo());
-                    moveToPath.mkdirs();
                     listener.getLogger().println(cpPath.toString());
-
-                    workspace.copyRecursiveTo(cpPath.getInclude(), cpPath.getExclude()
-                            + ", .packaged/", moveToPath);
+                    cpPath.copy(workspace, packagePath, listener);
                 }
             }
 
@@ -165,29 +160,30 @@ public class DebPackagerBuilder extends Builder {
                             maintainer, build.getEnvironment(listener)), "UTF-8");
 
             // 4. save postinst, preinst, postrm, prerm to files
-            FilePath preinstFile = debianPath.child("preinst");
-            FilePath postinstFile = debianPath.child("postinst");
-            FilePath prermFile = debianPath.child("prerm");
-            FilePath postrmFile = debianPath.child("postrm");
-            preinstFile.write(preinst, "UTF-8");
-            postinstFile.write(postinst, "UTF-8");
-            prermFile.write(prerm, "UTF-8");
-            postrmFile.write(postrm, "UTF-8");
+            if (preinst != null) {
+                preinst.create("preinst", debianPath, workspace);
+            }
+            if (postinst != null) {
+                postinst.create("postinst", debianPath, workspace);
+            }
+            if (prerm != null) {
+                prerm.create("prerm", debianPath, workspace);
+            }
+            if (postrm != null) {
+                postrm.create("postrm", debianPath, workspace);
+            }
 
-            preinstFile.chmod(Integer.parseInt("755", 8));
-            postinstFile.chmod(Integer.parseInt("755", 8));
-            prermFile.chmod(Integer.parseInt("755", 8));
-            postrmFile.chmod(Integer.parseInt("755", 8));
-
+            // 4.1 chown packagePath
             FilePathUtils.chown(packagePath, "root", "root");
 
-            // 4.5 make lintian override file
+            // 4.2 make lintian override file
 
             // 5. chmod all directories to 755
 
             // 6. set DEB_PKG_NAME env var
             build.getEnvironment(listener).put("DEB_PKG_NAME", debPkgName);
 
+            listener.getLogger().println("Deb Packager - finished");
         } catch (Exception e) {
             e.printStackTrace(listener.getLogger());
             return false;
@@ -246,7 +242,21 @@ public class DebPackagerBuilder extends Builder {
         }
 
         public String getDisplayName() {
-            return "Deb Packager";
+            return "Deb Packager - Structurer";
         }
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("packageName = " + packageName + "\n");
+        sb.append("versionFormat = " + versionFormat + "\n");
+        sb.append("copyToPaths = " + copyToPaths + "\n");
+        sb.append("dependencies = " + dependencies + "\n");
+        sb.append("maintainer = " + maintainer + "\n");
+        sb.append("preinst = " + preinst + "\n");
+        sb.append("postinst = " + postinst + "\n");
+        sb.append("prerm = " + prerm + "\n");
+        sb.append("postrm = " + postrm + "\n");
+        return sb.toString();
     }
 }

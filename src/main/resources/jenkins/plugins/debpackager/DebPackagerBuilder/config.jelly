@@ -1,14 +1,5 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-  <!--
-    This jelly script is used for per-project configuration.
 
-    See global.jelly for a general discussion about jelly script.
-  -->
-
-  <!--
-    Creates a text field that shows the value of the "name" property.
-    When submitted, it will be passed to the corresponding constructor parameter.
-  -->
   <f:entry title="Package Name" field="packageName">
     <f:textbox />
   </f:entry>
@@ -22,9 +13,10 @@
       <table width="100%">
         <f:entry>
           <span style="vertical-align: middle;">
-            Include <f:textbox style="width:25%;" name="include"/>
-            Exclude <f:textbox style="width:25%;" name="exclude"/>
-            To <f:textbox style="width:25%;" name="to" />
+          	Working Dir <f:textbox style="width:15%;" field="workingDir" />
+            Include <f:textbox style="width:15%;" field="include" />
+            Exclude <f:textbox style="width:15%;" field="exclude" />
+            To <f:textbox style="width:15%;" field="to" />
             <input type="button" value="Delete Rule" class="repeatable-delete" style="margin-left: 1em; vertical-align:middle;"/>
           </span>
         </f:entry>
@@ -40,19 +32,67 @@
     <f:textbox />
   </f:entry>
 
-  <f:entry title="preinst script:" field="preinst">
-    <f:textarea />
+  <f:entry title="preinst:" field="preinst">
+  	<table width="100%">
+	  <f:radioBlock name="preinst" title="None" value="none" checked="${instance.preinst.value == 'none'}" />
+	  <f:radioBlock name="preinst" title="File" value="file" checked="${instance.preinst.value == 'file'}" >
+		<f:entry field="data">
+		  <f:textbox value="${instance.preinst.value == 'file' ? instance.preinst.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	  <f:radioBlock name="preinst" title="Script" value="script" checked="${instance.preinst.value == 'script'}" >
+		<f:entry field="data">
+	      <f:textarea value="${instance.preinst.value == 'script' ? instance.preinst.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	</table>
   </f:entry>
 
-  <f:entry title="postinst script:" field="postinst">
-    <f:textarea />
+  <f:entry title="postinst:" field="postinst">
+  	<table width="100%">
+	  <f:radioBlock name="postinst" title="None" value="none" checked="${instance.postinst.value == 'none'}" />
+	  <f:radioBlock name="postinst" title="File" value="file" checked="${instance.postinst.value == 'file'}" >
+		<f:entry field="data">
+		  <f:textbox value="${instance.postinst.value == 'file' ? instance.postinst.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	  <f:radioBlock name="postinst" title="Script" value="script" checked="${instance.postinst.value == 'script'}" >
+		<f:entry field="data">
+	      <f:textarea value="${instance.postinst.value == 'script' ? instance.postinst.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	</table>
   </f:entry>
 
-  <f:entry title="prerm script:" field="prerm">
-    <f:textarea />
+  <f:entry title="prerm:" field="prerm">
+  	<table width="100%">
+	  <f:radioBlock name="prerm" title="None" value="none" checked="${instance.prerm.value == 'none'}" />
+	  <f:radioBlock name="prerm" title="File" value="file" checked="${instance.prerm.value == 'file'}" >
+		<f:entry field="data">
+		  <f:textbox value="${instance.prerm.value == 'file' ? instance.prerm.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	  <f:radioBlock name="prerm" title="Script" value="script" checked="${instance.prerm.value == 'script'}" >
+		<f:entry field="data">
+	      <f:textarea value="${instance.prerm.value == 'script' ? instance.prerm.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	</table>
   </f:entry>
 
-  <f:entry title="postrm script:" field="postrm">
-    <f:textarea />
+  <f:entry title="postrm:" field="postrm">
+  	<table width="100%">
+	  <f:radioBlock name="postrm" title="None" value="none" checked="${instance.postrm.value == 'none'}" />
+	  <f:radioBlock name="postrm" title="File" value="file" checked="${instance.postrm.value == 'file'}" >
+		<f:entry field="data">
+		  <f:textbox value="${instance.postrm.value == 'file' ? instance.postrm.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	  <f:radioBlock name="postrm" title="Script" value="script" checked="${instance.postrm.value == 'script'}" >
+		<f:entry field="data">
+	      <f:textarea value="${instance.postrm.value == 'script' ? instance.postrm.data : ''}"/>
+		</f:entry>
+	  </f:radioBlock>
+	</table>
   </f:entry>
 </j:jelly>
