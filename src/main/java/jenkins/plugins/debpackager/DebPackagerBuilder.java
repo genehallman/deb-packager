@@ -9,6 +9,7 @@ import hudson.model.BuildListener;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.ParametersAction;
+import hudson.model.StringParameterValue;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
 import hudson.util.FormValidation;
@@ -124,7 +125,7 @@ public class DebPackagerBuilder extends Builder {
         try {
             FilePath workspace = build.getWorkspace();
             String packageNameSub = getParameterString(packageName, build, listener);
-            String version = getParameterString(versionFormat, build, listener);
+            String version = getParameterString(versionFormat, build, listener).replace("_", "-");
             String dependenciesSub = getParameterString(dependencies, build, listener);
             String debPkgName = packageNameSub + "_" + version;
 
@@ -173,15 +174,16 @@ public class DebPackagerBuilder extends Builder {
                 postrm.create("postrm", debianPath, workspace);
             }
 
-            // 4.1 chown packagePath
+            // 5 chown packagePath
             FilePathUtils.chown(packagePath, "root", "root");
 
-            // 4.2 make lintian override file
-
-            // 5. chmod all directories to 755
-
             // 6. set DEB_PKG_NAME env var
-            build.getEnvironment(listener).put("DEB_PKG_NAME", debPkgName);
+            // build.getEnvironment(listener).put("DEB_PKG_NAME", debPkgName);
+            build.addAction(new ParametersAction(new StringParameterValue("DEB_PKG_NAME",
+                    debPkgName)));
+
+            // new Shell("export DEB_PKG_NAME=" + debPkgName).perform(build,
+            // launcher, listener);
 
             listener.getLogger().println("Deb Packager - finished");
         } catch (Exception e) {
@@ -196,7 +198,7 @@ public class DebPackagerBuilder extends Builder {
             String dependenciesSub, String maintainer, EnvVars env) {
         StringBuilder sb = new StringBuilder();
         sb.append("Package:" + packageNameSub + "\n");
-        sb.append("Version: " + version.replace("_", "-") + "\n");
+        sb.append("Version: " + version + "\n");
         sb.append("Section: devel\n");
         sb.append("Priority: optional\n");
         sb.append("Architecture: all\n");
