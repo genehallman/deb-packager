@@ -1,0 +1,62 @@
+package jenkins.plugins.debpackager;
+
+import hudson.Extension;
+import hudson.Launcher;
+import hudson.model.BuildListener;
+import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
+import hudson.tasks.BuildStepDescriptor;
+import hudson.tasks.Builder;
+import hudson.tasks.Shell;
+
+import java.io.IOException;
+
+import org.kohsuke.stapler.DataBoundConstructor;
+
+public class ManualRepoBuilder extends Builder {
+    String command = "\n"
+            + "echo DEB_PKG_NAME=$DEB_PKG_NAME \n"
+            + "echo DEBIAN_REPO_BASE=$DEBIAN_REPO_BASE \n"
+            + "echo DEBIAN_REPO_DISTRIBUTION=$DEBIAN_REPO_DISTRIBUTION \n"
+            + "echo PKG_CHAR=$PKG_CHAR \n"
+            + "echo PKG_NAME=$PKG_NAME \n"
+            + "sudo mkdir -p $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME \n"
+            + "sudo cp .packaged.deb $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME/$DEB_PKG_NAME.deb \n"
+            + "cd $DEBIAN_REPO_BASE \n"
+            + "sudo sh -c \"dpkg-scanpackages -m pool/main/ > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages\" \n"
+            + "sudo sh -c \"cat dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages | gzip -9 > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages.gz\" \n"
+            + "cd - \n";
+
+    @DataBoundConstructor
+    public ManualRepoBuilder() {
+    }
+
+    @Override
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener)
+            throws InterruptedException, IOException {
+        String fullName = build.getEnvironment(listener).get("DEB_PKG_NAME");
+        String pkgName = fullName.split("_")[0];
+        String pkgChar = String.valueOf(pkgName.charAt(0));
+
+        String com = command.replaceAll("\\$PKG_CHAR", pkgChar).replaceAll("\\$PKG_NAME", pkgName);
+
+        return new Shell(com).perform(build, launcher, listener);
+    }
+
+    @Override
+    public DescriptorImpl getDescriptor() {
+        return (DescriptorImpl) super.getDescriptor();
+    }
+
+    @Extension
+    public static final class DescriptorImpl extends BuildStepDescriptor<Builder> {
+        @SuppressWarnings("rawtypes")
+        public boolean isApplicable(Class<? extends AbstractProject> aClass) {
+            return true;
+        }
+
+        public String getDisplayName() {
+            return "Deb Packager - Manual Repo Builder";
+        }
+    }
+}
