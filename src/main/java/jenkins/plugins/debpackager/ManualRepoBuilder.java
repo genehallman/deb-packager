@@ -23,7 +23,10 @@ public class ManualRepoBuilder extends Builder {
             + "sudo mkdir -p $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME \n"
             + "sudo cp .packaged.deb $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME/$DEB_PKG_NAME.deb \n"
             + "cd $DEBIAN_REPO_BASE \n"
-            + "sudo sh -c \"dpkg-scanpackages -m pool/main/ > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages\" \n"
+            + "sudo pip install https://github.com/genehallman/pydpkg-lite/tarball/master#egg=pydpkg-lite \n"
+            + "sudo sh -c \"dpkg.py $DEBIAN_REPO_BASE > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages\" \n"
+            // +
+            // "sudo sh -c \"dpkg-scanpackages -m pool/main/ > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages\" \n"
             + "sudo sh -c \"cat dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages | gzip -9 > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages.gz\" \n"
             + "cd - \n";
 
