@@ -20,6 +20,10 @@ public class ManualRepoBuilder extends Builder {
             + "echo DEBIAN_REPO_DISTRIBUTION=$DEBIAN_REPO_DISTRIBUTION \n"
             + "echo PKG_CHAR=$PKG_CHAR \n"
             + "echo PKG_NAME=$PKG_NAME \n"
+            + "/usr/bin/lockfile-create -v --retry 10 /var/run/jenkins/debpackager\n"
+            + "if [ $? -ne 0 ]; then echo 'Cannot aquire lock!'; exit; fi\n"
+            + "lockfile-touch /var/run/jenkins/debpackager &\n"
+            + "LOCK_UPDATER=\"$!\"\n"
             + "sudo mkdir -p $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME \n"
             + "sudo cp .packaged.deb $DEBIAN_REPO_BASE/pool/main/$PKG_CHAR/$PKG_NAME/$DEB_PKG_NAME.deb \n"
             + "cd $DEBIAN_REPO_BASE \n"
@@ -28,6 +32,8 @@ public class ManualRepoBuilder extends Builder {
             // +
             // "sudo sh -c \"dpkg-scanpackages -m pool/main/ > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages\" \n"
             + "sudo sh -c \"cat dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages | gzip -9 > dists/$DEBIAN_REPO_DISTRIBUTION/main/binary-all/Packages.gz\" \n"
+            + "kill \"${LOCK_UPDATER}\"\n"
+            + "/usr/bin/lockfile-remove -v /var/run/jenkins/debpackager\n"
             + "cd - \n";
 
     @DataBoundConstructor
